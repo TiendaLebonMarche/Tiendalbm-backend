@@ -21,7 +21,7 @@ import {
   MINIO_SECRET_KEY,
   MINIO_BUCKET,
   MEILISEARCH_HOST,
-  MEILISEARCH_API_KEY
+  MEILISEARCH_ADMIN_KEY
 } from 'lib/constants';
 
 loadEnv(process.env.NODE_ENV, process.cwd());
@@ -38,6 +38,11 @@ const medusaConfig = {
       storeCors: STORE_CORS,
       jwtSecret: JWT_SECRET,
       cookieSecret: COOKIE_SECRET
+    },
+    build: {
+      rollupOptions: {
+        external: ["@medusajs/dashboard", "@medusajs/admin-shared"]
+      }
     }
   },
   admin: {
@@ -50,7 +55,16 @@ const medusaConfig = {
       resolve: '@medusajs/file',
       options: {
         providers: [
-          ...(MINIO_ENDPOINT && MINIO_ACCESS_KEY && MINIO_SECRET_KEY ? [{
+          ...(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET ? [{
+            resolve: 'medusa-file-cloudinary',
+            id: 'cloudinary',
+            options: {
+              cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+              api_key: process.env.CLOUDINARY_API_KEY,
+              api_secret: process.env.CLOUDINARY_API_SECRET,
+              secure: true,
+            }
+          }] : MINIO_ENDPOINT && MINIO_ACCESS_KEY && MINIO_SECRET_KEY ? [{
             resolve: './src/modules/minio-file',
             id: 'minio',
             options: {
@@ -127,27 +141,32 @@ const medusaConfig = {
           },
         ],
       },
-    }] : []),
-    ...(MEILISEARCH_HOST && MEILISEARCH_API_KEY ? [{
+    }] : [])
+  ],
+  plugins: [
+    ...(MEILISEARCH_HOST && MEILISEARCH_ADMIN_KEY ? [{
       resolve: '@rokmohar/medusa-plugin-meilisearch',
       options: {
         config: {
           host: MEILISEARCH_HOST,
-          apiKey: MEILISEARCH_API_KEY
+          apiKey: MEILISEARCH_ADMIN_KEY
         },
         settings: {
           products: {
+            type: 'products',
+            enabled: true,
+            fields: ['id', 'title', 'description', 'handle', 'variant_sku', 'thumbnail'],
             indexSettings: {
               searchableAttributes: ['title', 'description', 'variant_sku'],
-              displayedAttributes: ['title', 'description', 'variant_sku', 'thumbnail', 'handle']
+              displayedAttributes: ['id', 'handle', 'title', 'description', 'variant_sku', 'thumbnail'],
+              filterableAttributes: ['id', 'handle'],
             },
-            primaryKey: 'id'
+            primaryKey: 'id',
           }
         }
       }
     }] : [])
-  ],
-  plugins: []
+  ]
 };
 
 console.log(JSON.stringify(medusaConfig, null, 2));
