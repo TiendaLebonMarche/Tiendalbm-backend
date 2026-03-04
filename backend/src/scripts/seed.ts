@@ -1,3 +1,9 @@
+import { CreateInventoryLevelInput, ExecArgs } from "@medusajs/framework/types";
+import {
+  ContainerRegistrationKeys,
+  Modules,
+  ProductStatus,
+} from "@medusajs/framework/utils";
 import {
   createApiKeysWorkflow,
   createInventoryLevelsWorkflow,
@@ -11,18 +17,46 @@ import {
   createTaxRegionsWorkflow,
   linkSalesChannelsToApiKeyWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
+  updateStoresStep,
   updateStoresWorkflow,
-} from "@medusajs/core-flows";
-import { CreateInventoryLevelInput, ExecArgs } from "@medusajs/types";
+} from "@medusajs/medusa/core-flows";
 import {
-  ContainerRegistrationKeys,
-  Modules,
-  ProductStatus,
-} from "@medusajs/utils";
+  createWorkflow,
+  transform,
+  WorkflowResponse,
+} from "@medusajs/framework/workflows-sdk";
+
+const updateStoreCurrencies = createWorkflow(
+  "update-store-currencies",
+  (input: {
+    supported_currencies: { currency_code: string; is_default?: boolean }[];
+    store_id: string;
+  }) => {
+    const normalizedInput = transform({ input }, (data) => {
+      return {
+        selector: { id: data.input.store_id },
+        update: {
+          supported_currencies: data.input.supported_currencies.map(
+            (currency) => {
+              return {
+                currency_code: currency.currency_code,
+                is_default: currency.is_default ?? false,
+              };
+            }
+          ),
+        },
+      };
+    });
+
+    const stores = updateStoresStep(normalizedInput);
+
+    return new WorkflowResponse(stores);
+  }
+);
 
 export default async function seedDemoData({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
-  const remoteLink = container.resolve(ContainerRegistrationKeys.REMOTE_LINK);
+  const link = container.resolve(ContainerRegistrationKeys.LINK);
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
   const fulfillmentModuleService = container.resolve(Modules.FULFILLMENT);
   const salesChannelModuleService = container.resolve(Modules.SALES_CHANNEL);
@@ -52,19 +86,25 @@ export default async function seedDemoData({ container }: ExecArgs) {
     defaultSalesChannel = salesChannelResult;
   }
 
+  await updateStoreCurrencies(container).run({
+    input: {
+      store_id: store.id,
+      supported_currencies: [
+        {
+          currency_code: "eur",
+          is_default: true,
+        },
+        {
+          currency_code: "usd",
+        },
+      ],
+    },
+  });
+
   await updateStoresWorkflow(container).run({
     input: {
       selector: { id: store.id },
       update: {
-        supported_currencies: [
-          {
-            currency_code: "eur",
-            is_default: true,
-          },
-          {
-            currency_code: "usd",
-          },
-        ],
         default_sales_channel_id: defaultSalesChannel[0].id,
       },
     },
@@ -89,6 +129,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
   await createTaxRegionsWorkflow(container).run({
     input: countries.map((country_code) => ({
       country_code,
+      provider_id: "tp_system",
     })),
   });
   logger.info("Finished seeding tax regions.");
@@ -112,7 +153,16 @@ export default async function seedDemoData({ container }: ExecArgs) {
   });
   const stockLocation = stockLocationResult[0];
 
-  await remoteLink.create({
+  await updateStoresWorkflow(container).run({
+    input: {
+      selector: { id: store.id },
+      update: {
+        default_location_id: stockLocation.id,
+      },
+    },
+  });
+
+  await link.create({
     [Modules.STOCK_LOCATION]: {
       stock_location_id: stockLocation.id,
     },
@@ -122,18 +172,25 @@ export default async function seedDemoData({ container }: ExecArgs) {
   });
 
   logger.info("Seeding fulfillment data...");
-  const { result: shippingProfileResult } =
-    await createShippingProfilesWorkflow(container).run({
-      input: {
-        data: [
-          {
-            name: "Default",
-            type: "default",
-          },
-        ],
-      },
-    });
-  const shippingProfile = shippingProfileResult[0];
+  const shippingProfiles = await fulfillmentModuleService.listShippingProfiles({
+    type: "default",
+  });
+  let shippingProfile = shippingProfiles.length ? shippingProfiles[0] : null;
+
+  if (!shippingProfile) {
+    const { result: shippingProfileResult } =
+      await createShippingProfilesWorkflow(container).run({
+        input: {
+          data: [
+            {
+              name: "Default Shipping Profile",
+              type: "default",
+            },
+          ],
+        },
+      });
+    shippingProfile = shippingProfileResult[0];
+  }
 
   const fulfillmentSet = await fulfillmentModuleService.createFulfillmentSets({
     name: "European Warehouse delivery",
@@ -175,7 +232,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
     ],
   });
 
-  await remoteLink.create({
+  await link.create({
     [Modules.STOCK_LOCATION]: {
       stock_location_id: stockLocation.id,
     },
@@ -214,7 +271,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
         rules: [
           {
             attribute: "enabled_in_store",
-            value: '"true"',
+            value: "true",
             operator: "eq",
           },
           {
@@ -252,7 +309,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
         rules: [
           {
             attribute: "enabled_in_store",
-            value: '"true"',
+            value: "true",
             operator: "eq",
           },
           {
@@ -338,6 +395,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
           handle: "t-shirt",
           weight: 400,
           status: ProductStatus.PUBLISHED,
+          shipping_profile_id: shippingProfile.id,
           images: [
             {
               url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/tee-black-front.png",
@@ -524,6 +582,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
           handle: "sweatshirt",
           weight: 400,
           status: ProductStatus.PUBLISHED,
+          shipping_profile_id: shippingProfile.id,
           images: [
             {
               url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatshirt-vintage-front.png",
@@ -624,6 +683,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
           handle: "sweatpants",
           weight: 400,
           status: ProductStatus.PUBLISHED,
+          shipping_profile_id: shippingProfile.id,
           images: [
             {
               url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatpants-gray-front.png",
@@ -724,6 +784,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
           handle: "shorts",
           weight: 400,
           status: ProductStatus.PUBLISHED,
+          shipping_profile_id: shippingProfile.id,
           images: [
             {
               url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/shorts-vintage-front.png",
