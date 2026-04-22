@@ -42,6 +42,7 @@ class MinioFileProviderService extends AbstractFileProviderService {
   protected client: Client
   protected readonly bucket: string
   protected readonly useSSL: boolean
+  protected readonly port: number
 
   constructor({ logger }: InjectedDependencies, options: MinioFileProviderOptions) {
     super()
@@ -83,6 +84,7 @@ class MinioFileProviderService extends AbstractFileProviderService {
     // Use provided bucket or default
     this.bucket = this.config_.bucket || DEFAULT_BUCKET
     this.useSSL = useSSL
+    this.port = port
     this.logger_.info(`MinIO service initialized with bucket: ${this.bucket}, endpoint: ${endPoint}, port: ${port}, SSL: ${useSSL}`)
 
     // Initialize Minio client with parsed settings
@@ -211,20 +213,24 @@ class MinioFileProviderService extends AbstractFileProviderService {
 
       // Upload file with public-read access
       await this.client.putObject(
-        this.bucket,
-        fileKey,
-        content,
-        content.length,
-        {
-          'Content-Type': file.mimeType,
-          'x-amz-meta-original-filename': file.filename,
-          'x-amz-acl': 'public-read'
-        }
+          this.bucket,
+          fileKey,
+          content,
+          content.length,
+          {
+            'Content-Type': file.mimeType,
+            'x-amz-meta-original-filename': file.filename,
+            'x-amz-acl': 'public-read'
+          }
       )
 
-      // Generate URL using the endpoint and bucket with correct protocol
+      // Generate URL using the endpoint and bucket with correct protocol and port
       const protocol = this.useSSL ? 'https' : 'http'
-      const url = `${protocol}://${this.config_.endPoint}/${this.bucket}/${fileKey}`
+      const portSuffix = (this.useSSL && this.port === 443) || (!this.useSSL && this.port === 80) 
+          ? '' 
+          : `:${this.port}`
+      
+      const url = `${protocol}://${this.config_.endPoint}${portSuffix}/${this.bucket}/${fileKey}`
 
       this.logger_.info(`Successfully uploaded file ${fileKey} to MinIO bucket ${this.bucket}`)
 
@@ -240,6 +246,7 @@ class MinioFileProviderService extends AbstractFileProviderService {
       )
     }
   }
+
 
   async delete(
     fileData: ProviderDeleteFileDTO | ProviderDeleteFileDTO[]
