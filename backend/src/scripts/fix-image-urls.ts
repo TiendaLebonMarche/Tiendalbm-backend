@@ -1,17 +1,23 @@
-import { createClient } from 'pg'
+import { Client } from 'pg'
+import { loadEnv } from '@medusajs/framework/utils'
+loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 async function fixImages() {
   const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/medusa'
-  const client = new createClient({ connectionString })
+  const client = new Client({ connectionString })
   
   try {
     await client.connect()
     console.log('Connected to database to fix image URLs...')
 
-    // Define the wrong prefix and the correct one
-    // Assuming MinIO on localhost:9000
-    const oldPrefix = 'http://localhost/medusa-media/'
-    const newPrefix = 'http://localhost:9000/medusa-media/'
+    // Define the wrong prefixes and the correct one (moving to local storage)
+    const prefixes = [
+      { old: 'http://localhost/medusa-media/', new: 'http://localhost:9000/static/' },
+      { old: 'http://localhost:9000/medusa-media/', new: 'http://localhost:9000/static/' }
+    ]
+
+    for (const { old: oldPrefix, new: newPrefix } of prefixes) {
+      console.log(`Migrating from ${oldPrefix} to ${newPrefix}...`)
 
     // Update image table
     const res = await client.query(`
@@ -30,6 +36,7 @@ async function fixImages() {
     `, [oldPrefix, newPrefix, `${oldPrefix}%`])
 
     console.log(`Updated ${resThumb.rowCount} product thumbnails.`)
+    }
     
   } catch (err) {
     console.error('Error fixing image URLs:', err)

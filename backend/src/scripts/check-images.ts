@@ -1,7 +1,7 @@
-import { createClient } from 'pg'
+import { Client } from 'pg'
 
 async function checkImages() {
-  const client = new createClient({
+  const client = new Client({
     connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/medusa'
   })
   
