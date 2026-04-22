@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { CreateInventoryLevelInput, ExecArgs } from "@medusajs/framework/types";
 import {
   ContainerRegistrationKeys,
@@ -1812,5 +1811,4 @@ export default async function seedDemoData({ container }: ExecArgs) {
   });
 
   logger.info("Finished seeding inventory levels data.");
->>>>>>> 218644ff5563c522caabd50af40c100b005a78a1
 }

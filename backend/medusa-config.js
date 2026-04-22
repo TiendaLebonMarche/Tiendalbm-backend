@@ -56,7 +56,7 @@ const medusaConfig = {
       options: {
         providers: [
           ...(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET ? [{
-            resolve: 'medusa-file-cloudinary',
+            resolve: './src/modules/cloudinary-file',
             id: 'cloudinary',
             options: {
               cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
