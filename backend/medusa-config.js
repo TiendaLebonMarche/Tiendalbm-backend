@@ -75,14 +75,15 @@ const medusaConfig = {
               bucket: process.env.MINIO_BUCKET // Optional, default: medusa-media
             }
           }] : []),
-          {
+          // Only use local in development or if no other providers are available
+          ...((process.env.NODE_ENV !== 'production' || (!process.env.CLOUDINARY_CLOUD_NAME && !process.env.MINIO_ENDPOINT)) ? [{
             resolve: '@medusajs/file-local',
             id: 'local',
             options: {
               upload_dir: 'static',
               backend_url: `${BACKEND_URL}/static`
             }
-          }
+          }] : [])
         ]
       }
     },

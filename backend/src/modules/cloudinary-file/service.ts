@@ -65,7 +65,7 @@ class CloudinaryFileProviderService extends AbstractFileProviderService {
         {
           resource_type: 'auto',
           folder: 'medusa-media',
-          public_id: file.filename.split('.')[0]
+          public_id: file.filename.split('.')[0].substring(0, 100).replace(/[^a-zA-Z0-9-_]/g, '_')
         },
         (error, result) => {
           if (error) {
