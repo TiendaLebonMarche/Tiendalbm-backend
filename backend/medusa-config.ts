@@ -22,7 +22,7 @@ import {
   MINIO_BUCKET,
   MEILISEARCH_HOST,
   MEILISEARCH_ADMIN_KEY
-} from 'lib/constants';
+} from './src/lib/constants';
 
 loadEnv(process.env.NODE_ENV, process.cwd());
 
@@ -172,5 +172,4 @@ const medusaConfig = {
   ]
 };
 
-console.log(JSON.stringify(medusaConfig, null, 2));
 export default defineConfig(medusaConfig);
