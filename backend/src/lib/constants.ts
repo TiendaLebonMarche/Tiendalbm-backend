@@ -100,3 +100,9 @@ export const WORKER_MODE =
  * Disable Admin
  */
 export const SHOULD_DISABLE_ADMIN = process.env.MEDUSA_DISABLE_ADMIN === 'true'
+
+/**
+ * Admin user credentials for auto-seed on startup
+ */
+export const MEDUSA_ADMIN_EMAIL = process.env.MEDUSA_ADMIN_EMAIL
+export const MEDUSA_ADMIN_PASSWORD = process.env.MEDUSA_ADMIN_PASSWORD
