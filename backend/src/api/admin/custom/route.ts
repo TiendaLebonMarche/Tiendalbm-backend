@@ -8,10 +8,10 @@ export async function GET(
   req: MedusaRequest,
   res: MedusaResponse
 ): Promise<void> {
-  const logger = req.resolve("logger") as any;
-  const userModuleService: IUserModuleService = req.resolve(
+  const logger = (req as any).scope.resolve("logger");
+  const userModuleService: IUserModuleService = (req as any).scope.resolve(
     Modules.USER
-  ) as any;
+  );
 
   const adminEmail = process.env.MEDUSA_ADMIN_EMAIL;
   const adminPassword = process.env.MEDUSA_ADMIN_PASSWORD;
@@ -45,7 +45,7 @@ export async function GET(
       return;
     }
 
-    // In Medusa v2, create the user record (no password — that's managed by auth module)
+    // In Medusa v2, user records hold profile info (password via auth module)
     const [user] = await userModuleService.createUsers([
       {
         email: normalizedEmail,
@@ -62,14 +62,13 @@ export async function GET(
       adminSeeded: true,
       email: user.email,
       id: user.id,
-      message: "Admin user record created. Password should be set via auth provider registration.",
+      message: "Admin user record created successfully",
     });
   } catch (error: any) {
     logger?.error(`[admin-seed] Failed: ${error.message}`);
     res.status(500).json({
       ok: false,
       error: error.message,
-      stack: error.stack,
     });
   }
 }
