@@ -19,16 +19,18 @@ export async function GET(
   if (!adminEmail || !adminPassword) {
     res.status(200).json({
       ok: true,
-      adminSeeded: adminSeeded,
+      adminSeeded,
       message: "MEDUSA_ADMIN_EMAIL or MEDUSA_ADMIN_PASSWORD not set",
     });
     return;
   }
 
+  const normalizedEmail = adminEmail.toLowerCase().trim();
+
   try {
-    // Check if admin already exists
+    // Check if admin user record exists
     const [users, count] = await userModuleService.listAndCountUsers({
-      email: adminEmail.toLowerCase().trim(),
+      email: normalizedEmail,
     });
 
     if (count > 0) {
@@ -43,14 +45,13 @@ export async function GET(
       return;
     }
 
-    // Create admin user
+    // In Medusa v2, create the user record (no password — that's managed by auth module)
     const [user] = await userModuleService.createUsers([
       {
-        email: adminEmail.toLowerCase().trim(),
-        password: adminPassword,
+        email: normalizedEmail,
         first_name: "Admin",
         last_name: "Le Bon Marché",
-      },
+      } as any,
     ]);
 
     adminSeeded = true;
@@ -61,13 +62,14 @@ export async function GET(
       adminSeeded: true,
       email: user.email,
       id: user.id,
-      message: "Admin user created successfully",
+      message: "Admin user record created. Password should be set via auth provider registration.",
     });
   } catch (error: any) {
     logger?.error(`[admin-seed] Failed: ${error.message}`);
     res.status(500).json({
       ok: false,
       error: error.message,
+      stack: error.stack,
     });
   }
 }
